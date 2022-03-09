@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Leaflet Exercise</title>
+    <meta charset="utf-8" />
+
+    <!-- Leaflet styles and code. Place in the <head></head> element. -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+
+    <!-- jQuery is a library that simplifies many things in JavaScript.
+	     We'll use it to retrieve data from the web. -->
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+
+    <script src="./p5.min.js"></script>
+    <!-- this should be unnecessary in this code, as we aren't using p5.js...
+       but since I'm showing you the code running in the p5 editor,
+       the editor expects p5.js to be here...
+       otherwise, it gives you a "TypeError: window.p5 is undefined".
+       We won't use any of p5.js's commands, though! -->
+  </head>
+  <style>
+  .legend {
+    font-family: "Century Gothic";
+    text-align: left;
+    font-size: 11px;
+    width: 115px;
+    height: 390px;
+    line-height: 13px;
+    background: white;
+}
+
+  </style>
+  <body>
+    <div id="mapid" style="width: 600px; height: 500px;"></div>
+    <!-- Our web map will get placed into this div element -->
+
+    <div id="controls" style="margin: 15px;">
+      <button id="showAllPOIbutton">Show all Points of Interest</button>
+
+      <span style="display:inline-block; width: 30px"></span>
+      <input type="text" id="highlightPOITextEntry" placeholder="type" />
+      <button id="highlightPOIButton">Highlight</button>
+    </div>
+
+    <script>
+
+        var map = L.map('mapid',
+                        {
+          								center: [49.26, -123.245],
+          								zoom: 13
+        								}
+                  );
+
+      var topoTiles = L.tileLayer(
+          								'https://stamen-tiles-{s}.a.ssl.fastly.net/watercolor/{z}/{x}/{y}.png',
+                          {
+      										maxZoom: 17,
+      										attribution: 'Basemap data: &copy; <a href="http://maps.stamen.com/#watercolor">Stamen Watercolor</a>'
+      									}
+      								).addTo(map);
+
+//add legend reference: https://codepen.io/haakseth/pen/KQbjdO//
+  var legend = L.control({ position: "topleft" });
+
+    legend.onAdd = function(map) {
+      var div = L.DomUtil.create("div", "legend");
+      div.setAttribute("style","background-color:white;opacity:0.7;padding:10px")
+        div.innerHTML += "<span style=color:#595B83><u><b>UBC Points of Interest</b></u></span><br><br>";
+        div.innerHTML += '<span>Athletics<br>';
+        div.innerHTML += '<span>Attraction</span><br>';
+        div.innerHTML += '<span>Bank</span><br>';
+        div.innerHTML += '<span>Cafe</span><br>';
+        div.innerHTML += '<span>Campus Services</span><br>';
+        div.innerHTML += '<span>Child Care</span><br>';
+        div.innerHTML += '<span>Commercial Services</span><br>';
+        div.innerHTML += '<span>Department</span><br>';
+        div.innerHTML += '<span>Faculty/School</span><br>';
+        div.innerHTML += '<span>Farmers Market</span><br>';
+        div.innerHTML += '<span>Field</span><br>';
+        div.innerHTML += '<span>Garden</span><br>';
+        div.innerHTML += '<span>Grocery</span><br>';
+        div.innerHTML += '<span>Hospital</span><br>';
+        div.innerHTML += '<span>Library</span><br>';
+        div.innerHTML += '<span>Medical</span><br>';
+        div.innerHTML += '<span>Mini-mart</span><br>';
+        div.innerHTML += '<span>Other</span><br>';
+        div.innerHTML += '<span>Park</span><br>';
+        div.innerHTML += '<span>Pharmacy</span><br>';
+        div.innerHTML += '<span>Plaza</span><br>';
+        div.innerHTML += '<span>Restaurant</span><br>';
+        div.innerHTML += '<span>Retail</span><br>';
+        div.innerHTML += '<span>School</span><br>';
+        div.innerHTML += '<span>Seniors</span><br>';
+        div.innerHTML += '<span>Student Housing</span><br>';
+        div.innerHTML += '<span>Transit</span><br>';
+        div.innerHTML += '<span>Worship</span><br>';
+        return div;
+        };
+
+  legend.addTo(map);
+
+        var poiMarker = {
+        	radius: 4,
+        	fillColor: "#E05F1B",
+        	color: "#943A09",
+        	weight: 1,
+        	opacity: 0.2,
+        	fillOpacity: 0.8
+      };
+
+        var poiHighlightMarker= {
+        	radius: 4,
+        	fillColor: "#62BA9F",
+        	color: "#38806A",
+        	weight: 1,
+        	opacity: 0.3,
+        	fillOpacity: 0.8
+      };
+
+        function onEachpoi (feature, layer) {
+           if (feature.properties && feature.properties.PLACENAME) {
+              layer.bindTooltip(feature.properties.PLACENAME);
+           }
+        }
+
+        function poiToLayer (feature, latlng) {
+
+          if (poiToHighlight === "") {
+            poiMarkerToUse = poiMarker;
+          } else {
+            poiMarkerToUse = poiHighlightMarker;
+          }
+
+          // for the current feature, make a circleMarker.
+          return L.circleMarker(
+            latlng,
+            poiMarkerToUse
+          );
+        }
+
+        function poiToFilter (feature, layer) {
+          if(poiToHighlight === "") {
+            return true;
+            // In this case, we're not highlighting anything, so draw everything.
+          }
+          else if (feature.properties && feature.properties.SERVICE_TYPE) {
+            // We just checked to make sure there are properties to avoid an error
+            return feature.properties.SERVICE_TYPE.toLowerCase().includes(poiToHighlight.toLowerCase());
+      		// We ignore uppercase/lowercase differences.
+          } else {
+            return false;
+            // This is for features that lack properties.
+            // Don't display them.
+          }
+        }
+
+      	var lastLayerAdded = {};
+        // Keeping track of lastLayerAdded lets us reset the map layers
+        // being shown so we don’t keep on layering new data on old.
+
+        function addPOI (){
+          if(map.hasLayer(lastLayerAdded)){
+            map.removeLayer(lastLayerAdded);
+          }
+          lastLayerAdded = L.geoJSON(poiGeoJSONdata, {
+       												pointToLayer: poiToLayer,
+                     				  onEachFeature: onEachpoi,
+              								filter: poiToFilter
+          									 }
+                           );
+          lastLayerAdded.addTo(map);
+        };
+
+        var poiToHighlight = "";
+        // This is set by someone pressing the highlight button.
+        // If it's an empty string, then just draw everything.
+
+        function highlightPOI () {
+          poiToHighlight = document
+            .getElementById("highlightPOITextEntry")
+            .value;  // get any text from the input box.
+          addPOI(); // add the points of interest
+          poiToHighlight = "";
+        }
+
+      var poiGeoJSONdata;
+
+        // load GeoJSON from a file on the web
+        // $ is jQuery.
+        // Raw points of interest layer
+      $.getJSON("https://raw.githubusercontent.com/UBCGeodata/ubc-geospatial-opendata/master/ubcv/locations/geojson/ubcv_poi.geojson",
+                  function(data){
+          					// Store data for later:
+      	      		poiGeoJSONdata = data;
+      						document
+                      .getElementById("showAllPOIbutton")
+                      .addEventListener("click", addPOI);
+          					document
+                      .getElementById("highlightPOIButton")
+                      .addEventListener("click", highlightPOI);
+
+        					}
+        );
+    </script>
+  </body>
+</html>
